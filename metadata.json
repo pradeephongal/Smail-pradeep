@@ -1,0 +1,6 @@
+{
+  "name": "Smail",
+  "description": "Smart email app with real-time Naïve Bayes AI spam detection, red warning alerts with sound, privacy protection, and secure app lock. Created by @PRADEEP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

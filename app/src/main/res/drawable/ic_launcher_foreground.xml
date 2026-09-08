@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Email Envelope Base (Clean White & Slate) centered at x=54, y=52 -->
+    <!-- Envelope body -->
+    <path
+        android:fillColor="#E0E7FF"
+        android:pathData="M27,37 h54 c2.8,0 5,2.2 5,5 v30 c0,2.8 -2.2,5 -5,5 h-54 c-2.8,0 -5,-2.2 -5,-5 v-30 c0,-2.8 2.2,-5 5,-5 z" />
+
+    <!-- Envelope Top Flap folded -->
+    <path
+        android:fillColor="#C7D2FE"
+        android:pathData="M27,37 L54,58 L81,37 Z" />
+
+    <!-- Envelope Inner shadow line -->
+    <path
+        android:strokeColor="#A5B4FC"
+        android:strokeWidth="1.5"
+        android:pathData="M27,77 L48,56 M81,77 L60,56" />
+
+    <!-- Shield Badge (Front AI Protection) centered on the envelope -->
+    <path
+        android:fillColor="#4F46E5"
+        android:pathData="M54,44 L68,48 v11 c0,10.5 -6.2,18 -14,21 c-7.8,-3 -14,-10.5 -14,-21 V48 Z" />
+
+    <!-- Shield Inner Fill (Cyber Teal / Cyan) -->
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M54,47 L65,50.2 v8.8 c0,8.5 -5,14.6 -11,17 c-6,-2.4 -11,-8.5 -11,-17 v-8.8 Z" />
+
+    <!-- AI Naive Bayes Sparkle / Shield Symbol (Checkmark & ML node) -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,59 L52.5,63.5 L60.5,54.5" />
+
+    <!-- Bayesian Distribution Nodes (3 small interconnected AI dots) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M54,30 A2.5,2.5 0 1,1 54,35 A2.5,2.5 0 1,1 54,30 Z" />
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M39,33 A2,2 0 1,1 39,37 A2,2 0 1,1 39,33 Z" />
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M69,33 A2,2 0 1,1 69,37 A2,2 0 1,1 69,33 Z" />
+
+    <!-- Connecting probability arcs -->
+    <path
+        android:strokeColor="#60A5FA"
+        android:strokeWidth="1"
+        android:pathData="M41,35 Q46.5,32 51.5,32.5 M56.5,32.5 Q61.5,32 67,35" />
+
+</vector>
