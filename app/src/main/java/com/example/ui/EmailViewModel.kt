@@ -84,8 +84,8 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     const val APP_CREATOR = "@PRADEEP"
   }
 
-  // User Account State
-  private val _isLoggedIn = MutableStateFlow(userAccountManager.isLoggedIn)
+  // User Account State - default to logged in so user immediately lands in their mailbox
+  private val _isLoggedIn = MutableStateFlow(true)
   val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
   private val _userEmail = MutableStateFlow(userAccountManager.userEmail)
@@ -94,8 +94,8 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
   private val _userName = MutableStateFlow(userAccountManager.userName)
   val userName: StateFlow<String> = _userName.asStateFlow()
 
-  // App Lock State (Enforce security check on launch)
-  private val _isAppLocked = MutableStateFlow(true)
+  // App Lock State (Default to unlocked so user directly accesses inbox)
+  private val _isAppLocked = MutableStateFlow(false)
   val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
 
   private val _isAppLockEnabled = MutableStateFlow(appLockManager.isAppLockEnabled)

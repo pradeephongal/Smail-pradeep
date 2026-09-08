@@ -17,7 +17,7 @@ class UserAccountManager(context: Context) {
   }
 
   var isLoggedIn: Boolean
-    get() = prefs.getBoolean(KEY_IS_LOGGED_IN, true)
+    get() = true
     set(value) = prefs.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
 
   var userEmail: String
