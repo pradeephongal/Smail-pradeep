@@ -196,11 +196,15 @@ fun MainApp(
           Manifest.permission.POST_NOTIFICATIONS
         ) != PackageManager.PERMISSION_GRANTED
       ) {
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        try {
+          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } catch (e: Exception) {
+          android.util.Log.e("MainActivity", "Notification permission launch failed", e)
+        }
       }
     }
-    // Launch BiometricPrompt on app start if biometrics are available
-    if (isBiometricAvailable) {
+    // Launch BiometricPrompt on app start if biometrics are available and app is locked
+    if (isLoggedIn && isAppLocked && isBiometricAvailable) {
       onTriggerBiometrics()
     }
   }
