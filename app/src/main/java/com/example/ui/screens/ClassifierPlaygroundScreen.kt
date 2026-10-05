@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,10 +38,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ml.ClassificationResult
 import com.example.ui.theme.HamGreen
 import com.example.ui.theme.HamGreenContainer
@@ -179,16 +182,23 @@ fun ClassifierPlaygroundScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        val isSpamResult = result?.isSpam ?: false
         Button(
           onClick = { onTestAsIncoming(subject, body) },
           modifier = Modifier
             .fillMaxWidth()
             .testTag("test_as_incoming_button"),
-          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+          colors = ButtonDefaults.buttonColors(
+            containerColor = if (isSpamResult) SpamRed else MaterialTheme.colorScheme.primary
+          )
         ) {
-          Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(18.dp))
+          Icon(
+            imageVector = if (isSpamResult) Icons.Default.Warning else Icons.Default.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+          )
           Spacer(modifier = Modifier.width(8.dp))
-          Text("Send as Real-Time Incoming Notification")
+          Text(if (isSpamResult) "Route Directly to Spam Section" else "Filter & Deliver to Inbox")
         }
       }
     }
@@ -213,30 +223,30 @@ fun ClassifierPlaygroundScreen(
             // Header Verdict
             Row(
               modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically
             ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                  imageVector = if (isSpam) Icons.Default.Warning else Icons.Default.CheckCircle,
-                  contentDescription = null,
-                  tint = accentColor,
-                  modifier = Modifier.size(28.dp)
+              Image(
+                painter = painterResource(
+                  if (isSpam) R.drawable.ic_fake_spam_art else R.drawable.ic_safe_verified_art
+                ),
+                contentDescription = if (isSpam) "Fake Spam Warning Graphic" else "Safe Original Email Graphic",
+                modifier = Modifier.size(56.dp)
+              )
+
+              Spacer(modifier = Modifier.width(12.dp))
+
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text = res.authenticityLabel,
+                  style = MaterialTheme.typography.titleMedium,
+                  fontWeight = FontWeight.Bold,
+                  color = accentColor
                 )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                  Text(
-                    text = if (isSpam) "CLASSIFIED AS SPAM" else "CLASSIFIED AS CLEAN HAM",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = accentColor
-                  )
-                  Text(
-                    text = "Threshold = 0.50",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                  )
-                }
+                Text(
+                  text = if (isSpam) "Auto-routed to Spam Section" else "Auto-routed to Primary Inbox",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
               }
 
               Surface(
@@ -253,6 +263,21 @@ fun ClassifierPlaygroundScreen(
               }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = res.detectionDetails,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(10.dp)
+              )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Mathematical Probability breakdown
@@ -263,34 +288,30 @@ fun ClassifierPlaygroundScreen(
                 .padding(14.dp)
             ) {
               Text(
-                text = "Bayesian Posterior Calculation:",
+                text = "Automated Security Decision:",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
               )
               Spacer(modifier = Modifier.height(6.dp))
               Text(
-                text = "P(Spam | Message) = ${String.format(java.util.Locale.US, "%.4f", res.spamProbability)} (${(res.spamProbability * 100).toInt()}%)",
-                style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
+                text = if (isSpam) {
+                  "Status: SPAM DETECTED (${(res.spamProbability * 100).toInt()}% confidence)"
+                } else {
+                  "Status: SAFE EMAIL (${((1f - res.spamProbability) * 100).toInt()}% confidence)"
+                },
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (isSpam) SpamRed else MaterialTheme.colorScheme.onSurface
+                color = accentColor
               )
+              Spacer(modifier = Modifier.height(4.dp))
               Text(
-                text = "P(Ham | Message)  = ${String.format(java.util.Locale.US, "%.4f", res.hamProbability)} (${(res.hamProbability * 100).toInt()}%)",
+                text = "Automated Action: " + if (isSpam) "Filter directly into Spam folder" else "Deliver directly to Inbox",
                 style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = if (!isSpam) HamGreen else MaterialTheme.colorScheme.onSurface
-              )
-              Text(
-                text = "Log-Likelihood Difference Δ = ${String.format(java.util.Locale.US, "%+.2f", res.logOddsRatio)}",
-                style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
               Text(
-                text = "Extracted Tokens: ${res.extractedTokensCount} active words",
+                text = "Tokens evaluated: ${res.extractedTokensCount} words",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )

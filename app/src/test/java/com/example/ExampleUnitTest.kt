@@ -43,10 +43,55 @@ class ExampleUnitTest {
       classifier.train(text, isSpam = false)
     }
 
-    val updatedResult = classifier.classify("Bonus notification", text)
+    val updatedResult = classifier.classify(subject = "Bonus notification", body = text)
     assertTrue(
       "Ham probability should increase after training",
       updatedResult.hamProbability >= initialResult.hamProbability
     )
+  }
+
+  @Test
+  fun testFakeEmailSenderDetection() {
+    val classifier = NaiveBayesClassifier()
+
+    // 1. Spoofed Google Security alert from suspicious domain
+    val fakeGoogleResult = classifier.classify(
+      senderName = "Google Security Team",
+      senderEmail = "no-reply@security-google-verify.top",
+      subject = "Your account was compromised",
+      body = "Please login to verify your identity"
+    )
+    assertTrue("Should detect spoofed brand as spam", fakeGoogleResult.isSpam)
+    assertFalse("Should not be marked as original", fakeGoogleResult.isOriginal)
+
+    // 2. Disposable temporary email
+    val disposableResult = classifier.classify(
+      senderName = "Support Agent",
+      senderEmail = "user99@tempmail.com",
+      subject = "Hello friend",
+      body = "Check out this document"
+    )
+    assertTrue("Disposable email should be flagged as spam", disposableResult.isSpam)
+    assertFalse("Disposable should not be marked as original", disposableResult.isOriginal)
+
+    // 3. Genuine real email from official domain
+    val legitResult = classifier.classify(
+      senderName = "Google Account",
+      senderEmail = "no-reply@accounts.google.com",
+      subject = "Security alert",
+      body = "A new sign-in on Android device"
+    )
+    assertFalse("Genuine sender should not be flagged as spam", legitResult.isSpam)
+    assertTrue("Genuine sender should be marked as original", legitResult.isOriginal)
+
+    // 4. Friend discussing Google Docs or Netflix (subject mentions brand, but personal sender)
+    val casualFriendResult = classifier.classify(
+      senderName = "Liam Miller",
+      senderEmail = "liam.miller@gmail.com",
+      subject = "Google Doc link for project notes",
+      body = "Hey! Here are the meeting notes from yesterday. Let me know what you think."
+    )
+    assertFalse("Personal email mentioning brand in subject should be safe", casualFriendResult.isSpam)
+    assertTrue("Personal email should be marked as original", casualFriendResult.isOriginal)
   }
 }

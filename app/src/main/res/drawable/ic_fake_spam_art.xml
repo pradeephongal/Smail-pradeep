@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <!-- Outer Soft Danger Glow Circle -->
+    <path
+        android:fillColor="#FEE2E2"
+        android:pathData="M48,48m-44,0a44,44 0,1 1,88 0a44,44 0,1 1,-88 0" />
+
+    <!-- Inner Warning Ring -->
+    <path
+        android:fillColor="#FECACA"
+        android:pathData="M48,48m-36,0a36,36 0,1 1,72 0a36,36 0,1 1,-72 0" />
+
+    <!-- Red Hazard Shield Shape -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M48,16 L74,26 C74,52 63,70 48,78 C33,70 22,52 22,26 Z" />
+
+    <!-- Deep Crimson Shield Shading (Right half) -->
+    <path
+        android:fillColor="#DC2626"
+        android:pathData="M48,16 L48,78 C63,70 74,52 74,26 Z" />
+
+    <!-- Quarantined / Compromised Envelope -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,36 L62,36 C64.2,36 66,37.8 66,40 L66,58 C66,60.2 64.2,62 62,62 L34,62 C31.8,62 30,60.2 30,58 L30,40 C30,37.8 31.8,36 34,36 Z" />
+
+    <!-- Torn/Compromised Envelope Flap -->
+    <path
+        android:fillColor="#FCA5A5"
+        android:pathData="M30,40 L48,52 L66,40 Z" />
+
+    <!-- Warning Red Alert Badge at Bottom Right -->
+    <path
+        android:fillColor="#991B1B"
+        android:pathData="M60,60m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0" />
+
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M60,60m-11,0a11,11 0,1 1,22 0a11,11 0,1 1,-22 0" />
+
+    <!-- Bold Exclamation Mark Symbol in Badge -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58.5,53 L61.5,53 L61,61 L59,61 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,65m-1.5,0a1.5,1.5 0,1 1,3 0a1.5,1.5 0,1 1,-3 0" />
+
+    <!-- Caution Diagonal Slash over Envelope -->
+    <path
+        android:fillColor="#B91C1C"
+        android:pathData="M33,61 L61,33 L64,36 L36,64 Z" />
+</vector>

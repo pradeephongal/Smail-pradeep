@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Search
@@ -45,7 +46,8 @@ import com.example.ui.theme.SpamRedContainer
 @Composable
 fun EmailListScreen(
   title: String,
-  isSpamFolder: Boolean,
+  isSpamFolder: Boolean = false,
+  isSentFolder: Boolean = false,
   emails: List<EmailEntity>,
   searchQuery: String,
   onSearchQueryChange: (String) -> Unit,
@@ -53,6 +55,8 @@ fun EmailListScreen(
   onToggleStar: (EmailEntity) -> Unit,
   modifier: Modifier = Modifier
 ) {
+  val isSent = isSentFolder || title.equals("Sent", ignoreCase = true)
+
   Column(
     modifier = modifier
       .fillMaxSize()
@@ -104,14 +108,20 @@ fun EmailListScreen(
             modifier = Modifier
               .size(8.dp)
               .clip(CircleShape)
-              .background(if (isSpamFolder) SpamRed else HamGreen)
+              .background(
+                when {
+                  isSpamFolder -> SpamRed
+                  isSent -> MaterialTheme.colorScheme.primary
+                  else -> HamGreen
+                }
+              )
           )
           Spacer(modifier = Modifier.width(6.dp))
           Text(
-            text = if (isSpamFolder) {
-              "${emails.size} Quarantined Threats"
-            } else {
-              "${emails.size} Verified Messages"
+            text = when {
+              isSpamFolder -> "${emails.size} Quarantined Threats"
+              isSent -> "${emails.size} Sent Messages"
+              else -> "${emails.size} Verified Messages"
             },
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
@@ -154,26 +164,39 @@ fun EmailListScreen(
           ) {
             Box(contentAlignment = Alignment.Center) {
               Icon(
-                imageVector = if (isSpamFolder) Icons.Default.Security else Icons.Default.Inbox,
+                imageVector = when {
+                  isSpamFolder -> Icons.Default.Security
+                  isSent -> Icons.AutoMirrored.Filled.Send
+                  else -> Icons.Default.Inbox
+                },
                 contentDescription = null,
-                tint = if (isSpamFolder) SpamRed else MaterialTheme.colorScheme.primary,
+                tint = when {
+                  isSpamFolder -> SpamRed
+                  else -> MaterialTheme.colorScheme.primary
+                },
                 modifier = Modifier.size(36.dp)
               )
             }
           }
           Spacer(modifier = Modifier.height(16.dp))
           Text(
-            text = if (isSpamFolder) "No spam emails detected" else "Your inbox is clean",
+            text = when {
+              isSent -> "No sent message"
+              isSpamFolder -> "No spam emails detected"
+              title.equals("Inbox", ignoreCase = true) -> "Inbox is empty"
+              else -> "No sent message"
+            },
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.testTag("empty_state_title")
           )
           Spacer(modifier = Modifier.height(6.dp))
           Text(
-            text = if (isSpamFolder) {
-              "Naïve Bayes is constantly monitoring incoming emails. Test a suspicious message using the '+' button below."
-            } else {
-              "Incoming messages are filtered in real-time by the Bayesian machine learning model."
+            text = when {
+              isSent -> "Messages you send will appear here."
+              isSpamFolder -> "Naïve Bayes is constantly monitoring incoming emails. Test a suspicious message using the '+' button below."
+              else -> "Incoming messages are filtered in real-time by the Bayesian machine learning model."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

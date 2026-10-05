@@ -16,13 +16,14 @@ class EmailRepository(
 ) {
 
   val inboxEmails: Flow<List<EmailEntity>> = emailDao.getEmailsByFolder("INBOX")
-  val spamEmails: Flow<List<EmailEntity>> = emailDao.getEmailsByFolder("SPAM")
   val sentEmails: Flow<List<EmailEntity>> = emailDao.getEmailsByFolder("SENT")
+  val spamEmails: Flow<List<EmailEntity>> = emailDao.getEmailsByFolder("SPAM")
   val trashEmails: Flow<List<EmailEntity>> = emailDao.getEmailsByFolder("TRASH")
   val allEmails: Flow<List<EmailEntity>> = emailDao.getAllEmails()
 
   val spamCount: Flow<Int> = emailDao.getSpamCount()
   val hamCount: Flow<Int> = emailDao.getHamCount()
+  val sentCount: Flow<Int> = emailDao.getSentCount()
   val totalCount: Flow<Int> = emailDao.getTotalCount()
   val unreadInboxCount: Flow<Int> = emailDao.getUnreadInboxCount()
   val unreadSpamCount: Flow<Int> = emailDao.getUnreadSpamCount()
@@ -70,53 +71,27 @@ class EmailRepository(
     savedEmail
   }
 
-  suspend fun sendOutgoingEmail(
-    senderName: String,
-    senderEmail: String,
+  suspend fun sendEmail(
     recipientEmail: String,
     subject: String,
     body: String
   ): EmailEntity = withContext(Dispatchers.IO) {
-    val result = classifier.classify(subject, body)
-    val triggerWordsString = result.topTriggerWords.joinToString(", ") { it.word }
-
     val email = EmailEntity(
-      senderName = "$senderName → $recipientEmail",
-      senderEmail = senderEmail,
-      subject = subject,
+      senderName = "Me",
+      senderEmail = "pradeephongal17@gmail.com",
+      subject = subject.ifBlank { "(No Subject)" },
       body = body,
       timestamp = System.currentTimeMillis(),
-      isSpam = result.isSpam,
-      spamProbability = result.spamProbability,
-      topTriggerWords = triggerWordsString,
+      isSpam = false,
+      spamProbability = 0.0f,
+      topTriggerWords = "",
       folder = "SENT",
       isRead = true,
       isStarred = false,
       userFeedback = null
     )
-
     val id = emailDao.insertEmail(email)
-    val savedEmail = email.copy(id = id)
-
-    // Notify user of successful real-time mail dispatch
-    notificationHelper.showDispatchNotification(
-      title = "✉️ Sent: $subject",
-      message = "Dispatched in real-time via Smail to $recipientEmail",
-      targetFolder = "SENT"
-    )
-
-    // If sent to self or loopback address, deliver in real-time to incoming inbox!
-    if (recipientEmail.equals(senderEmail, ignoreCase = true) || recipientEmail.contains("smail", ignoreCase = true)) {
-      receiveIncomingEmail(
-        senderName = senderName,
-        senderEmail = senderEmail,
-        subject = subject,
-        body = body,
-        triggerNotification = true
-      )
-    }
-
-    savedEmail
+    email.copy(id = id)
   }
 
   suspend fun markAsSpam(email: EmailEntity) = withContext(Dispatchers.IO) {

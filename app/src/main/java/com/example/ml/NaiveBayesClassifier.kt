@@ -9,7 +9,10 @@ data class ClassificationResult(
   val hamProbability: Float,
   val logOddsRatio: Double,
   val topTriggerWords: List<WordImpact>,
-  val extractedTokensCount: Int
+  val extractedTokensCount: Int,
+  val isOriginal: Boolean = !isSpam,
+  val authenticityLabel: String = if (isSpam) "FAKE / SPAM DETECTED" else "ORIGINAL & SAFE EMAIL",
+  val detectionDetails: String = if (isSpam) "Flagged by AI security analysis as fake or suspicious" else "Verified by AI security analysis as genuine and safe"
 )
 
 data class WordImpact(
@@ -76,6 +79,37 @@ class NaiveBayesClassifier(
       "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with",
       "won't", "would", "wouldn't", "you", "you'd", "you'll", "you're", "you've",
       "your", "yours", "yourself", "yourselves"
+    )
+
+    val DISPOSABLE_OR_FAKE_DOMAINS = setOf(
+      "fake.com", "fakemail.com", "tempmail.com", "temp-mail.org", "10minutemail.com",
+      "guerrillamail.com", "trashmail.com", "yopmail.com", "mailinator.com", "throwawaymail.com",
+      "dispostable.com", "sharklasers.com", "getairmail.com", "fakemail.net", "test.com",
+      "spambox.us", "mytemp.email", "nada.ltd", "mohmal.com", "crazymailing.com", "fakemail.org"
+    )
+
+    val HIGH_RISK_TLDS = setOf(
+      "tk", "ml", "ga", "cf", "gq", "xyz", "top", "click", "buzz", "club",
+      "work", "loan", "cam", "stream", "win", "bid", "download", "racing",
+      "accountant", "date", "faith", "party", "trade", "webcam"
+    )
+
+    val SUSPICIOUS_EMAIL_WORDS = listOf(
+      "fake", "scam", "spoof", "phish", "hacker", "urgent-verify", "claim-prize",
+      "prize-pool", "winner", "reward", "lottery", "security-update", "acc-suspended"
+    )
+
+    val BRAND_VERIFICATIONS = listOf(
+      Pair(listOf("google", "gmail", "youtube", "android"), setOf("google.com", "gmail.com", "youtube.com", "android.com")),
+      Pair(listOf("paypal"), setOf("paypal.com")),
+      Pair(listOf("amazon", "prime"), setOf("amazon.com", "amazon.co.uk", "amazon.in", "amazon.de", "amazon.fr")),
+      Pair(listOf("apple", "icloud"), setOf("apple.com", "icloud.com")),
+      Pair(listOf("microsoft", "outlook", "hotmail", "office365"), setOf("microsoft.com", "outlook.com", "hotmail.com")),
+      Pair(listOf("netflix"), setOf("netflix.com")),
+      Pair(listOf("facebook", "meta", "instagram", "whatsapp"), setOf("facebookmail.com", "meta.com", "instagram.com")),
+      Pair(listOf("chase", "wells fargo", "citibank", "bank of america"), setOf("chase.com", "wellsfargo.com", "citi.com", "bankofamerica.com")),
+      Pair(listOf("fedex", "dhl", "ups"), setOf("fedex.com", "dhl.com", "ups.com")),
+      Pair(listOf("irs", "tax refund"), setOf("irs.gov"))
     )
   }
 
@@ -156,34 +190,142 @@ class NaiveBayesClassifier(
   }
 
   /**
-   * Predict spam probability using Naïve Bayes with Laplace Smoothing and Log-Likelihood
+   * Evaluates sender authenticity and domain signals to detect fake, spoofed, or phishing addresses
    */
-  fun classify(subject: String, body: String): ClassificationResult {
-    val fullText = "$subject $subject $body" // Weigh subject twice
-    val tokens = tokenize(fullText)
+  private fun analyzeSenderAuthenticity(
+    senderName: String,
+    senderEmail: String,
+    subject: String,
+    body: String
+  ): AuthenticityEvaluation {
+    val cleanEmail = senderEmail.trim().lowercase()
+    val cleanName = senderName.trim().lowercase()
+    val cleanSubj = subject.trim().lowercase()
+    val cleanBody = body.trim().lowercase()
 
-    if (tokens.isEmpty() || vocabulary.isEmpty()) {
-      return ClassificationResult(
-        isSpam = false,
-        spamProbability = 0.1f,
-        hamProbability = 0.9f,
-        logOddsRatio = -2.0,
-        topTriggerWords = emptyList(),
-        extractedTokensCount = 0
-      )
+    val reasons = mutableListOf<String>()
+    var fakeScore = 0f
+
+    // 1. Check basic email syntax
+    val emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$".toRegex()
+    if (cleanEmail.isNotBlank() && !emailRegex.matches(cleanEmail)) {
+      fakeScore += 0.85f
+      reasons.add("Invalid email format or syntax")
     }
+
+    val domain = if ("@" in cleanEmail) cleanEmail.substringAfter("@") else ""
+    val localPart = if ("@" in cleanEmail) cleanEmail.substringBefore("@") else cleanEmail
+    val tld = if ("." in domain) domain.substringAfterLast(".") else ""
+
+    // 2. Check disposable / fake email domains
+    if (domain in DISPOSABLE_OR_FAKE_DOMAINS ||
+      domain.contains("temp-mail") ||
+      domain.contains("fakemail") ||
+      domain.contains("throwaway") ||
+      domain.contains("dispos")
+    ) {
+      fakeScore += 0.95f
+      reasons.add("Disposable or fake email service domain ($domain)")
+    }
+
+    // 3. Check for fake / scam keywords in address
+    for (kw in SUSPICIOUS_EMAIL_WORDS) {
+      if (cleanEmail.contains(kw)) {
+        fakeScore += 0.80f
+        reasons.add("Address contains high-risk fraud keyword '$kw'")
+        break
+      }
+    }
+
+    // 4. Check high-risk TLDs commonly used by spammers
+    if (tld in HIGH_RISK_TLDS) {
+      fakeScore += 0.50f
+      reasons.add("High-risk domain extension (.$tld)")
+    }
+
+    // 5. Brand Impersonation / Spoofing Check
+    // Spoofing occurs when the sender's display name or email address impersonates a known brand,
+    // NOT merely because the subject mentions a brand (e.g. discussing Google Docs or Netflix shows).
+    var isVerifiedAuthenticBrand = false
+    for ((brandKeywords, verifiedDomains) in BRAND_VERIFICATIONS) {
+      val senderClaimsBrand = brandKeywords.any { kw ->
+        cleanName.contains(kw) || localPart.contains(kw)
+      }
+      if (senderClaimsBrand) {
+        val domainMatches = verifiedDomains.any { domain.endsWith(it) }
+        val primaryBrand = brandKeywords.first().replaceFirstChar { it.uppercase() }
+        if (!domainMatches && domain.isNotBlank()) {
+          fakeScore += 0.95f
+          reasons.add("Brand Spoofing: Sender claims to be $primaryBrand but email domain is @$domain")
+          break
+        } else if (domainMatches) {
+          isVerifiedAuthenticBrand = true
+          reasons.add("Verified Authentic: Official domain for $primaryBrand ($domain)")
+        }
+      }
+    }
+
+    // 6. Look for urgent phishing and credential harvesting phrases
+    val phishingPhrases = listOf(
+      "verify your account", "account suspended", "suspended immediately", "confirm password",
+      "unauthorized sign in", "unauthorized access", "unusual activity", "within 24 hours",
+      "enter your pin", "social security", "card details", "reset password immediately",
+      "wire transfer", "cash prize", "crypto giveaway", "won lottery", "lottery bonus"
+    )
+    val fullContent = "$cleanSubj $cleanBody"
+    val foundPhrases = phishingPhrases.filter { fullContent.contains(it) }
+    if (foundPhrases.isNotEmpty()) {
+      fakeScore += (foundPhrases.size * 0.35f).coerceAtMost(0.90f)
+      reasons.add("Phishing triggers: " + foundPhrases.take(2).joinToString(", "))
+    }
+
+    val isFakeOrPhishing = fakeScore >= 0.60f
+    return AuthenticityEvaluation(
+      isFake = isFakeOrPhishing,
+      fakeScore = fakeScore.coerceIn(0f, 1f),
+      isVerifiedAuthenticBrand = isVerifiedAuthenticBrand && foundPhrases.isEmpty(),
+      reasons = reasons
+    )
+  }
+
+  private data class AuthenticityEvaluation(
+    val isFake: Boolean,
+    val fakeScore: Float,
+    val isVerifiedAuthenticBrand: Boolean = false,
+    val reasons: List<String>
+  )
+
+  /**
+   * Predict spam probability and authenticity using Naïve Bayes + Authenticity AI Heuristics
+   */
+  fun classify(
+    senderName: String = "",
+    senderEmail: String = "",
+    subject: String,
+    body: String
+  ): ClassificationResult {
+    val authEval = analyzeSenderAuthenticity(senderName, senderEmail, subject, body)
+
+    val syntheticTokens = mutableListOf<String>()
+    if (authEval.isFake) {
+      syntheticTokens.add("__feature_fake_sender_domain__")
+      syntheticTokens.add("__feature_brand_spoofing__")
+    }
+
+    // Include sender details, subject weighted, body, and synthetic tokens
+    val fullText = "$senderName $senderEmail $subject $subject $body " + syntheticTokens.joinToString(" ")
+    val tokens = tokenize(fullText) + syntheticTokens
 
     val totalDocs = spamDocsCount + hamDocsCount
     val vocabSize = vocabulary.size.coerceAtLeast(1)
 
-    // Class Prior Probabilities with Laplace smoothing
+    // Prior probabilities
     val priorSpam = (spamDocsCount + laplaceSmoothingAlpha) / (totalDocs + 2 * laplaceSmoothingAlpha)
     val priorHam = (hamDocsCount + laplaceSmoothingAlpha) / (totalDocs + 2 * laplaceSmoothingAlpha)
 
     var logProbSpam = ln(priorSpam)
     var logProbHam = ln(priorHam)
 
-    // Denominators for conditional probability P(w|C) with Add-1 Laplace Smoothing
     val spamDenominator = totalSpamTokens + (laplaceSmoothingAlpha * vocabSize)
     val hamDenominator = totalHamTokens + (laplaceSmoothingAlpha * vocabSize)
 
@@ -194,31 +336,35 @@ class NaiveBayesClassifier(
       val spamCount = spamWordCounts[token] ?: 0
       val hamCount = hamWordCounts[token] ?: 0
 
+      // In Naive Bayes, skip unseen words with 0 counts in both classes to avoid bias from denominator difference
+      if (spamCount == 0 && hamCount == 0) {
+        continue
+      }
+
       val pTokenGivenSpam = (spamCount + laplaceSmoothingAlpha) / spamDenominator
       val pTokenGivenHam = (hamCount + laplaceSmoothingAlpha) / hamDenominator
 
       logProbSpam += ln(pTokenGivenSpam)
       logProbHam += ln(pTokenGivenHam)
 
-      // Calculate word impact (log-odds contribution)
       if (token !in seenTokens) {
         seenTokens.add(token)
         val impact = ln(pTokenGivenSpam) - ln(pTokenGivenHam)
-        // Clean display name for feature tokens
         val displayName = when (token) {
           "__feature_link__" -> "[Web Link]"
           "__feature_currency__" -> "[$ Currency]"
           "__feature_multiple_punctuation__" -> "[!!! Symbols]"
           "__feature_caps_shouting__" -> "[SHOUTING ALL-CAPS]"
+          "__feature_fake_sender_domain__" -> "[Fake/Disposable Sender]"
+          "__feature_brand_spoofing__" -> "[Brand Impersonation]"
           else -> token
         }
         wordImpacts.add(WordImpact(displayName, impact, pTokenGivenSpam, pTokenGivenHam))
       }
     }
 
-    // Convert log-likelihood difference to posterior probability using logistic sigmoid
     val delta = logProbSpam - logProbHam
-    val spamProb = if (delta > 50) {
+    var bayesianSpamProb = if (delta > 50) {
       0.9999
     } else if (delta < -50) {
       0.0001
@@ -226,8 +372,38 @@ class NaiveBayesClassifier(
       1.0 / (1.0 + exp(-delta))
     }
 
-    val hamProb = 1.0 - spamProb
-    val isSpam = spamProb.toFloat() >= spamThreshold
+    // Fuse Bayesian Score with Authenticity Intelligence
+    val finalSpamProb: Float
+    val isSpam: Boolean
+    val authenticityLabel: String
+    val detectionDetails: String
+
+    if (authEval.isFake) {
+      // Strong fake or spoofed sender: enforce minimum 0.92+ spam probability
+      finalSpamProb = (bayesianSpamProb.toFloat().coerceAtLeast(0.92f) + (authEval.fakeScore * 0.07f)).coerceAtMost(0.999f)
+      isSpam = true
+      authenticityLabel = "SPAM DETECTED"
+      detectionDetails = "Why is this in Spam? " + authEval.reasons.joinToString("; ")
+    } else if (authEval.isVerifiedAuthenticBrand) {
+      // Verified legitimate sender domain (e.g. accounts.google.com, paypal.com)
+      finalSpamProb = (bayesianSpamProb.toFloat() * 0.15f).coerceIn(0.001f, 0.20f)
+      isSpam = false
+      authenticityLabel = "SAFE EMAIL"
+      detectionDetails = "Verified authentic official domain: " + authEval.reasons.joinToString("; ")
+    } else {
+      // Clean sender authenticity
+      finalSpamProb = bayesianSpamProb.toFloat().coerceIn(0.001f, 0.999f)
+      isSpam = finalSpamProb >= spamThreshold
+      if (isSpam) {
+        authenticityLabel = "SPAM DETECTED"
+        detectionDetails = "Why is this in Spam? Message matches high-frequency spam patterns."
+      } else {
+        authenticityLabel = "SAFE EMAIL"
+        detectionDetails = "Verified Safe: Passed automated spam security checks."
+      }
+    }
+
+    val hamProb = 1.0f - finalSpamProb
 
     // Sort word impacts by magnitude of contribution
     val sortedImpacts = wordImpacts.sortedByDescending { if (isSpam) it.impactScore else -it.impactScore }
@@ -235,12 +411,22 @@ class NaiveBayesClassifier(
 
     return ClassificationResult(
       isSpam = isSpam,
-      spamProbability = spamProb.toFloat(),
-      hamProbability = hamProb.toFloat(),
+      spamProbability = finalSpamProb,
+      hamProbability = hamProb,
       logOddsRatio = delta,
       topTriggerWords = sortedImpacts,
-      extractedTokensCount = tokens.size
+      extractedTokensCount = tokens.size,
+      isOriginal = !isSpam,
+      authenticityLabel = authenticityLabel,
+      detectionDetails = detectionDetails
     )
+  }
+
+  /**
+   * Overload for backward compatibility
+   */
+  fun classify(subject: String, body: String): ClassificationResult {
+    return classify("", "", subject, body)
   }
 
   /**
@@ -260,7 +446,17 @@ class NaiveBayesClassifier(
       val pSpam = ((spamWordCounts[token] ?: 0) + laplaceSmoothingAlpha) / spamDenominator
       val pHam = ((hamWordCounts[token] ?: 0) + laplaceSmoothingAlpha) / hamDenominator
       val ratio = ln(pSpam) - ln(pHam)
-      token to ratio
+
+      val display = when (token) {
+        "__feature_link__" -> "Links/URLs"
+        "__feature_currency__" -> "$/Currency"
+        "__feature_caps_shouting__" -> "ALL-CAPS"
+        "__feature_multiple_punctuation__" -> "!!!"
+        "__feature_fake_sender_domain__" -> "Fake Sender"
+        "__feature_brand_spoofing__" -> "Brand Spoofing"
+        else -> token
+      }
+      display to ratio
     }
 
     val topSpam = tokenRatios.sortedByDescending { it.second }.take(10).map {
@@ -314,7 +510,6 @@ class NaiveBayesClassifier(
   }
 
   private fun loadDefaultCorpus() {
-    // 20 High-signal spam seed examples covering phishing, lottery, crypto, fake invoice, urgent account lock
     val spamSeeds = listOf(
       "CONGRATULATIONS! You have won $1,000,000 lottery cash prize! Claim your prize now urgently. Click here to verify your bank account and receive immediate transfer.",
       "URGENT: Your PayPal account has been suspended due to unauthorized activity! Verify your password and billing info immediately or your account will be permanently locked.",
@@ -338,7 +533,6 @@ class NaiveBayesClassifier(
       "Claim your unclaimed government relief grant of $12,500. Direct deposit available upon verification of identity. Don't miss out!"
     )
 
-    // 20 High-signal ham (normal) seed examples covering work, scheduling, personal, newsletters, order receipts
     val hamSeeds = listOf(
       "Hi team, let's schedule our sprint planning meeting for Thursday at 10 AM. Please review the updated product backlog before our sync.",
       "Hey Alex, are we still meeting for lunch tomorrow at the cafeteria? Let me know what time works best for you.",

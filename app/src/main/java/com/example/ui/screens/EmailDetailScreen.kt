@@ -113,6 +113,46 @@ fun EmailDetailScreen(
         .verticalScroll(rememberScrollState())
         .padding(16.dp)
     ) {
+      // Gmail-style Spam Alert Banner if in Spam
+      if (email.isSpam) {
+        Surface(
+          shape = RoundedCornerShape(12.dp),
+          color = SpamRedContainer,
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+        ) {
+          Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Report, contentDescription = null, tint = SpamRed, modifier = Modifier.size(20.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(
+                text = "Why is this message in Spam?",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = OnSpamRedContainer
+              )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+              text = "Smail identified this message as suspicious or spam. It was automatically moved here to protect your inbox.",
+              style = MaterialTheme.typography.bodySmall,
+              color = OnSpamRedContainer
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              Button(
+                onClick = onMarkAsNotSpam,
+                colors = ButtonDefaults.buttonColors(containerColor = SpamRed),
+                modifier = Modifier.testTag("gmail_report_not_spam_btn")
+              ) {
+                Text("Report not spam (Move to Inbox)", fontSize = 12.sp)
+              }
+            }
+          }
+        }
+      }
+
       // Subject Header
       Text(
         text = email.subject,

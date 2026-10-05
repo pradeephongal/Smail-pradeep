@@ -7,10 +7,6 @@ import com.example.data.EmailEntity
 import com.example.data.EmailRepository
 import com.example.ml.ClassificationResult
 import com.example.ml.ModelMetrics
-import com.example.security.AppLockManager
-import com.example.security.UserAccountManager
-import com.example.ui.components.SpamAlertInfo
-import com.example.util.AlertSoundHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,28 +27,28 @@ enum class AppTab {
 
 enum class SimulationPreset(val label: String, val senderName: String, val senderEmail: String, val subject: String, val body: String) {
   LOTTERY_SCAM(
-    "Lottery Jackpot Scam",
+    "Lottery Jackpot",
     "Global Cash Bureau",
     "claims@international-lottery-award.org",
     "URGENT: $2,000,000 Cash Prize Notification for Immediate Claim!",
     "Congratulations to our lucky winner! Your email was drawn in the European Mega Cash Draw for $2,000,000. Click here to verify your bank details urgently and release wire transfer."
   ),
   PHISHING_BANK(
-    "Banking Phishing Attack",
+    "Banking Phishing",
     "Security Department",
     "security-alert@verify-chase-auth.net",
     "Action Required: Your online banking account has been suspended",
     "Dear customer, unusual debit attempts were detected. Please click http://verify-secure-auth.net/login immediately to update your password, social security, and debit card PIN to prevent permanent termination."
   ),
   CRYPTO_GIVEAWAY(
-    "Crypto Multiplier Scam",
+    "Crypto Scam",
     "Elon Musk Official",
     "btc-promotions@giveaway-airdrop.xyz",
     "Double your Ethereum & Bitcoin in 1 Hour - Official Giveaway!",
     "To celebrate our space launch, we are giving away 5,000 BTC. Send 0.1 BTC to receive 0.2 BTC bonus instantly. Free money guarantee for first 100 participants!"
   ),
   WORK_SYNC(
-    "Work Meeting Notes",
+    "Work Meeting",
     "Rachel Green",
     "rachel.green@company.com",
     "Sprint retro notes and next week's architecture sync",
@@ -66,7 +62,7 @@ enum class SimulationPreset(val label: String, val senderName: String, val sende
     "Hey! Are you free this Saturday around 7 PM? We're hosting a barbecue in the backyard. Let me know if you can make it, would love to catch up!"
   ),
   INVOICE_RECEIPT(
-    "Vendor Monthly Invoice",
+    "Vendor Invoice",
     "Billing Services",
     "invoices@cloudhost-services.io",
     "Monthly Cloud Server Invoice #8491 attached",
@@ -77,34 +73,7 @@ enum class SimulationPreset(val label: String, val senderName: String, val sende
 class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
   private val repository = EmailRepository.getInstance(application)
-  private val appLockManager = AppLockManager(application)
-  private val userAccountManager = UserAccountManager(application)
 
-  companion object {
-    const val APP_CREATOR = "@PRADEEP"
-  }
-
-  // User Account State - default to logged in so user immediately lands in their mailbox
-  private val _isLoggedIn = MutableStateFlow(true)
-  val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
-
-  private val _userEmail = MutableStateFlow(userAccountManager.userEmail)
-  val userEmail: StateFlow<String> = _userEmail.asStateFlow()
-
-  private val _userName = MutableStateFlow(userAccountManager.userName)
-  val userName: StateFlow<String> = _userName.asStateFlow()
-
-  // App Lock State (Default to unlocked so user directly accesses inbox)
-  private val _isAppLocked = MutableStateFlow(false)
-  val isAppLocked: StateFlow<Boolean> = _isAppLocked.asStateFlow()
-
-  private val _isAppLockEnabled = MutableStateFlow(appLockManager.isAppLockEnabled)
-  val isAppLockEnabled: StateFlow<Boolean> = _isAppLockEnabled.asStateFlow()
-
-  private val _currentPin = MutableStateFlow(appLockManager.pin)
-  val currentPin: StateFlow<String> = _currentPin.asStateFlow()
-
-  // Tab & Navigation State
   private val _currentTab = MutableStateFlow(AppTab.INBOX)
   val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
 
@@ -116,10 +85,6 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
 
   private val _statusMessage = MutableStateFlow<String?>(null)
   val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
-
-  // In-app Red Spam Warning Alert
-  private val _latestSpamAlert = MutableStateFlow<SpamAlertInfo?>(null)
-  val latestSpamAlert: StateFlow<SpamAlertInfo?> = _latestSpamAlert.asStateFlow()
 
   private val _isAutoSimulatorActive = MutableStateFlow(false)
   val isAutoSimulatorActive: StateFlow<Boolean> = _isAutoSimulatorActive.asStateFlow()
@@ -168,6 +133,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
   val totalCount = repository.totalCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
   val spamCount = repository.spamCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
   val hamCount = repository.hamCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+  val sentCount = repository.sentCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
   val unreadInbox = repository.unreadInboxCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
   val unreadSpam = repository.unreadSpamCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
@@ -179,60 +145,6 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
       runPlaygroundPrediction()
       refreshMetrics()
     }
-  }
-
-  // Account methods
-  fun login(email: String, name: String) {
-    userAccountManager.login(email, name)
-    _userEmail.value = userAccountManager.userEmail
-    _userName.value = userAccountManager.userName
-    _isLoggedIn.value = true
-    _isAppLocked.value = false
-    _statusMessage.value = "Signed in as $email"
-  }
-
-  fun logout() {
-    userAccountManager.logout()
-    _isLoggedIn.value = false
-    _isAppLocked.value = true
-    _statusMessage.value = "Signed out of Smail"
-  }
-
-  fun unlockSuccess() {
-    _isAppLocked.value = false
-  }
-
-  // App Lock methods
-  fun verifyPin(pin: String): Boolean {
-    val isValid = appLockManager.verifyPin(pin)
-    if (isValid) {
-      _isAppLocked.value = false
-    }
-    return isValid
-  }
-
-  fun lockApp() {
-    _isAppLocked.value = true
-  }
-
-  fun toggleAppLock(enabled: Boolean) {
-    appLockManager.isAppLockEnabled = enabled
-    _isAppLockEnabled.value = enabled
-    _statusMessage.value = if (enabled) "App Lock enabled with PIN ${_currentPin.value}" else "App Lock disabled"
-  }
-
-  fun changePin(newPin: String) {
-    appLockManager.pin = newPin
-    _currentPin.value = newPin
-    _statusMessage.value = "Security PIN updated"
-  }
-
-  fun playWarningAlertSound() {
-    AlertSoundHelper.playSpamWarningAlert(getApplication())
-  }
-
-  fun dismissSpamAlert() {
-    _latestSpamAlert.value = null
   }
 
   fun setTab(tab: AppTab) {
@@ -267,25 +179,6 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     runPlaygroundPrediction()
   }
 
-  fun classifyDraft(subject: String, body: String): ClassificationResult {
-    return repository.testPredict(subject, body)
-  }
-
-  fun sendEmail(recipientEmail: String, subject: String, body: String) {
-    viewModelScope.launch {
-      _statusMessage.value = "Sending email in real-time via Smail..."
-      val sent = repository.sendOutgoingEmail(
-        senderName = _userName.value,
-        senderEmail = _userEmail.value,
-        recipientEmail = recipientEmail,
-        subject = subject,
-        body = body
-      )
-      refreshMetrics()
-      _statusMessage.value = "✉️ Dispatched in real-time to $recipientEmail"
-    }
-  }
-
   fun runPlaygroundPrediction() {
     val result = repository.testPredict(_playgroundSubject.value, _playgroundBody.value)
     _playgroundResult.value = result
@@ -305,19 +198,8 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         triggerNotification = true
       )
       refreshMetrics()
-
-      if (email.isSpam) {
-        val spamScore = (email.spamProbability * 100).toInt()
-        AlertSoundHelper.playSpamWarningAlert(getApplication())
-        _latestSpamAlert.value = SpamAlertInfo(
-          subject = email.subject,
-          senderName = email.senderName,
-          spamScore = spamScore,
-          triggerWords = email.topTriggerWords
-        )
-      } else {
-        _statusMessage.value = "✉️ Clean email received in Inbox: '${email.subject.take(30)}...'"
-      }
+      val verdict = if (email.isSpam) "⚠️ SPAM Filtered" else "✉️ Clean Ham"
+      _statusMessage.value = "$verdict: '${email.subject.take(30)}...' (${(email.spamProbability * 100).toInt()}% risk)"
     }
   }
 
@@ -331,19 +213,8 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
         triggerNotification = true
       )
       refreshMetrics()
-
-      if (email.isSpam) {
-        val spamScore = (email.spamProbability * 100).toInt()
-        AlertSoundHelper.playSpamWarningAlert(getApplication())
-        _latestSpamAlert.value = SpamAlertInfo(
-          subject = email.subject,
-          senderName = email.senderName,
-          spamScore = spamScore,
-          triggerWords = email.topTriggerWords
-        )
-      } else {
-        _statusMessage.value = "✉️ Normal email delivered to Inbox (${((1f - email.spamProbability) * 100).toInt()}% clean)"
-      }
+      val verdict = if (email.isSpam) "Quarantined to Spam" else "Delivered to Inbox"
+      _statusMessage.value = "$verdict: ${(email.spamProbability * 100).toInt()}% Spam probability"
     }
   }
 
@@ -388,6 +259,13 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
     }
   }
 
+  fun sendEmail(recipientEmail: String, subject: String, body: String) {
+    viewModelScope.launch {
+      repository.sendEmail(recipientEmail, subject, body)
+      _statusMessage.value = "Email sent"
+    }
+  }
+
   fun toggleAutoSimulator() {
     val newState = !_isAutoSimulatorActive.value
     _isAutoSimulatorActive.value = newState
@@ -406,10 +284,10 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
       val presets = SimulationPreset.entries
       var index = 0
       while (_isAutoSimulatorActive.value) {
-        delay(14000)
+        delay(14000) // Every 14 seconds an incoming email arrives
         val preset = presets[index % presets.size]
         index++
-        val email = repository.receiveIncomingEmail(
+        repository.receiveIncomingEmail(
           senderName = preset.senderName,
           senderEmail = preset.senderEmail,
           subject = preset.subject,
@@ -417,15 +295,6 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
           triggerNotification = true
         )
         refreshMetrics()
-        if (email.isSpam) {
-          AlertSoundHelper.playSpamWarningAlert(getApplication())
-          _latestSpamAlert.value = SpamAlertInfo(
-            subject = email.subject,
-            senderName = email.senderName,
-            spamScore = (email.spamProbability * 100).toInt(),
-            triggerWords = email.topTriggerWords
-          )
-        }
       }
     }
   }
@@ -435,7 +304,7 @@ class EmailViewModel(application: Application) : AndroidViewModel(application) {
       repository.resetModelAndSeedData()
       refreshMetrics()
       runPlaygroundPrediction()
-      _statusMessage.value = "Smail Naïve Bayes model and sample emails reset to default corpus"
+      _statusMessage.value = "Naïve Bayes model and sample emails reset to default corpus"
     }
   }
 

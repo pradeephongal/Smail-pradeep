@@ -37,6 +37,9 @@ interface EmailDao {
   @Query("SELECT COUNT(*) FROM emails WHERE folder = 'SPAM' AND isRead = 0")
   fun getUnreadSpamCount(): Flow<Int>
 
+  @Query("SELECT COUNT(*) FROM emails WHERE folder = 'SENT'")
+  fun getSentCount(): Flow<Int>
+
   @Insert(onConflict = OnConflictStrategy.REPLACE)
   suspend fun insertEmail(email: EmailEntity): Long
 

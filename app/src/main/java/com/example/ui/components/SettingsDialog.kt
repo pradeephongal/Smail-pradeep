@@ -16,10 +16,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -45,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import com.example.ui.theme.HamGreen
 import com.example.ui.theme.SpamRed
 
 @Composable
@@ -58,6 +62,8 @@ fun SettingsDialog(
   onTestWarningSound: () -> Unit,
   onOpenPrivacyPolicy: () -> Unit,
   onLogout: () -> Unit,
+  onClearDemoEmails: (() -> Unit)? = null,
+  onResetDemoEmails: (() -> Unit)? = null,
   onDismiss: () -> Unit
 ) {
   var newPinInput by remember { mutableStateOf(currentPin) }
@@ -242,6 +248,64 @@ fun SettingsDialog(
                   style = MaterialTheme.typography.labelSmall,
                   color = MaterialTheme.colorScheme.primary
                 )
+              }
+            }
+          }
+        }
+
+        // Real Email & Mailbox Management
+        Card(
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+        ) {
+          Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(
+                text = "Real Email & Filtering",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+              )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              text = "Just like Gmail, incoming and scanned emails are analyzed for spam threats. Spam is automatically routed to the Spam folder, while safe emails go to your Inbox.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (onClearDemoEmails != null) {
+              OutlinedButton(
+                onClick = {
+                  onClearDemoEmails()
+                },
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("clear_demo_emails_button")
+              ) {
+                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Clear Demo Emails (Keep Only Real Scans)")
+              }
+            }
+
+            if (onResetDemoEmails != null) {
+              Spacer(modifier = Modifier.height(6.dp))
+              OutlinedButton(
+                onClick = {
+                  onResetDemoEmails()
+                },
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("reset_demo_emails_button")
+              ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Reload Sample Reference Emails")
               }
             }
           }

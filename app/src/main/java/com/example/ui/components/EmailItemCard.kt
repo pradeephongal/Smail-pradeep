@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -159,14 +160,13 @@ fun EmailItemCard(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ML Status Pill and Trigger Words
+        // Email Security Status (Clean Gmail-style badge)
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
           if (email.isSpam) {
-            val spamScore = (email.spamProbability * 100).toInt()
             Surface(
               shape = RoundedCornerShape(8.dp),
               color = SpamRedContainer
@@ -183,7 +183,7 @@ fun EmailItemCard(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                  text = "Bayes: $spamScore% Spam",
+                  text = "Spam Filtered",
                   style = MaterialTheme.typography.labelSmall,
                   fontWeight = FontWeight.Bold,
                   color = OnSpamRedContainer
@@ -191,18 +191,28 @@ fun EmailItemCard(
               }
             }
           } else {
-            val hamScore = ((1f - email.spamProbability) * 100).toInt()
             Surface(
               shape = RoundedCornerShape(8.dp),
               color = HamGreenContainer
             ) {
-              Text(
-                text = "✓ $hamScore% Clean Ham",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = OnHamGreenContainer,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-              )
+              Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(
+                  imageVector = Icons.Default.CheckCircle,
+                  contentDescription = "Safe Email",
+                  tint = HamGreen,
+                  modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = "Safe",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.SemiBold,
+                  color = OnHamGreenContainer
+                )
+              }
             }
           }
 

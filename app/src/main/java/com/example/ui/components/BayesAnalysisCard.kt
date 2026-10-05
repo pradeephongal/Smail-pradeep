@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,10 +33,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.theme.HamGreen
 import com.example.ui.theme.HamGreenContainer
 import com.example.ui.theme.OnHamGreenContainer
@@ -63,8 +66,12 @@ fun BayesAnalysisCard(
   }
 
   val primaryAccent = if (isSpam) SpamRed else HamGreen
-  val statusTitle = if (isSpam) "⚠️ Quarantined by Naïve Bayes" else "✓ Verified Clean (Ham)"
-  val statusIcon = if (isSpam) Icons.Default.Warning else Icons.Default.CheckCircle
+  val statusTitle = if (isSpam) "SPAM DETECTED" else "SAFE EMAIL"
+  val statusDesc = if (isSpam) {
+    "Moved to Spam: Smail automated security filter identified this message as suspicious or spam."
+  } else {
+    "Delivered to Inbox: Smail automated security filter verified this message is clean and authentic."
+  }
 
   Card(
     modifier = modifier.fillMaxWidth(),
@@ -79,88 +86,105 @@ fun BayesAnalysisCard(
     ) {
       Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-          Icon(
-            imageVector = statusIcon,
-            contentDescription = "Status",
-            tint = primaryAccent,
-            modifier = Modifier.size(22.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text(
-            text = statusTitle,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = if (isSpam) OnSpamRedContainer else OnHamGreenContainer
-          )
-        }
+        // Safe vs Fake Visual Graphic Asset
+        Image(
+          painter = painterResource(
+            if (isSpam) R.drawable.ic_fake_spam_art else R.drawable.ic_safe_verified_art
+          ),
+          contentDescription = if (isSpam) "Fake Spam Warning Graphic" else "Safe Original Email Graphic",
+          modifier = Modifier.size(52.dp)
+        )
 
-        Surface(
-          shape = CircleShape,
-          color = primaryAccent.copy(alpha = 0.15f)
-        ) {
+        Spacer(modifier = Modifier.width(14.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
           Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
-            Icon(
-              imageVector = Icons.Default.AutoAwesome,
-              contentDescription = "ML Classifier",
-              tint = primaryAccent,
-              modifier = Modifier.size(12.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
             Text(
-              text = "Naïve Bayes",
-              style = MaterialTheme.typography.labelSmall,
-              fontWeight = FontWeight.SemiBold,
-              color = primaryAccent
+              text = statusTitle,
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              color = if (isSpam) SpamRed else HamGreen
             )
+
+            Surface(
+              shape = CircleShape,
+              color = primaryAccent.copy(alpha = 0.15f)
+            ) {
+              Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(
+                  imageVector = if (isSpam) Icons.Default.Warning else Icons.Default.CheckCircle,
+                  contentDescription = null,
+                  tint = primaryAccent,
+                  modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                  text = if (isSpam) "Spam Filter" else "Verified Safe",
+                  style = MaterialTheme.typography.labelSmall,
+                  fontWeight = FontWeight.SemiBold,
+                  color = primaryAccent
+                )
+              }
+            }
           }
+
+          Spacer(modifier = Modifier.height(4.dp))
+
+          Text(
+            text = statusDesc,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
         }
       }
 
       Spacer(modifier = Modifier.height(14.dp))
 
-      // Bayes Probability Gauge Bar
+      // Single Definitive Status (Like Gmail - Never show safe and spam together)
       Column {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween
         ) {
           Text(
-            text = "Spam Risk: ${(animatedProb * 100).toInt()}%",
+            text = if (isSpam) "Classification: Spam Message" else "Classification: Clean Inbox Message",
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = if (isSpam) SpamRed else MaterialTheme.colorScheme.onSurface
+            color = if (isSpam) SpamRed else HamGreen
           )
           Text(
-            text = "Legitimacy: ${((1f - animatedProb) * 100).toInt()}%",
+            text = if (isSpam) "${(animatedProb * 100).toInt()}% Threat Confidence" else "${((1f - animatedProb) * 100).toInt()}% Safety Confidence",
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (!isSpam) HamGreen else MaterialTheme.colorScheme.onSurfaceVariant
+            fontWeight = FontWeight.SemiBold,
+            color = if (isSpam) SpamRed else HamGreen
           )
         }
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Multi-segment progress bar
+        // Single solid colored bar matching verdict
         Box(
           modifier = Modifier
             .fillMaxWidth()
-            .height(10.dp)
-            .clip(RoundedCornerShape(5.dp))
-            .background(HamGreen.copy(alpha = 0.25f))
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(if (isSpam) SpamRedContainer else HamGreenContainer)
         ) {
           Box(
             modifier = Modifier
-              .fillMaxWidth(fraction = animatedProb.coerceIn(0.01f, 1f))
+              .fillMaxWidth(fraction = (if (isSpam) animatedProb else (1f - animatedProb)).coerceIn(0.1f, 1f))
               .fillMaxHeight()
-              .clip(RoundedCornerShape(5.dp))
-              .background(if (animatedProb > 0.5f) SpamRed else primaryAccent)
+              .clip(RoundedCornerShape(4.dp))
+              .background(primaryAccent)
           )
         }
       }

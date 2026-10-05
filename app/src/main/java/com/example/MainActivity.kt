@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,33 +22,33 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +66,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -79,29 +81,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.security.BiometricAuthHelper
 import com.example.ui.AppTab
 import com.example.ui.EmailViewModel
-import com.example.ui.components.AppFooter
 import com.example.ui.components.ComposeEmailDialog
-import com.example.ui.components.PrivacyPolicyDialog
-import com.example.ui.components.SettingsDialog
 import com.example.ui.components.SimulateIncomingEmailDialog
-import com.example.ui.components.SpamWarningBanner
-import com.example.ui.screens.AppLockScreen
 import com.example.ui.screens.ClassifierPlaygroundScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.EmailDetailScreen
 import com.example.ui.screens.EmailListScreen
-import com.example.ui.screens.EmailLoginScreen
+import com.example.ui.theme.HamGreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.SpamRed
 
-class MainActivity : FragmentActivity() {
+class MainActivity : ComponentActivity() {
   private val viewModel: EmailViewModel by viewModels()
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,55 +104,28 @@ class MainActivity : FragmentActivity() {
 
     // Handle intent extras if notification was tapped
     val targetFolder = intent.getStringExtra("TARGET_FOLDER")
-    when (targetFolder) {
-      "SPAM" -> viewModel.setTab(AppTab.SPAM)
-      "SENT" -> viewModel.setTab(AppTab.SENT)
-      "INBOX" -> viewModel.setTab(AppTab.INBOX)
+    if (targetFolder == "SPAM") {
+      viewModel.setTab(AppTab.SPAM)
+    } else if (targetFolder == "INBOX") {
+      viewModel.setTab(AppTab.INBOX)
     }
 
     setContent {
       MyApplicationTheme {
-        MainApp(
-          activity = this,
-          viewModel = viewModel,
-          onTriggerBiometrics = { triggerBiometricPrompt() }
-        )
+        MainApp(viewModel = viewModel)
       }
     }
-  }
-
-  fun triggerBiometricPrompt() {
-    BiometricAuthHelper.showBiometricPrompt(
-      activity = this,
-      onSuccess = {
-        viewModel.unlockSuccess()
-      },
-      onError = { _ -> }
-    )
   }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainApp(
-  activity: FragmentActivity,
-  viewModel: EmailViewModel,
-  onTriggerBiometrics: () -> Unit
-) {
+fun MainApp(viewModel: EmailViewModel) {
   val context = LocalContext.current
-  val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
-  val userEmail by viewModel.userEmail.collectAsStateWithLifecycle()
-  val userName by viewModel.userName.collectAsStateWithLifecycle()
-
-  val isAppLocked by viewModel.isAppLocked.collectAsStateWithLifecycle()
-  val isAppLockEnabled by viewModel.isAppLockEnabled.collectAsStateWithLifecycle()
-  val currentPin by viewModel.currentPin.collectAsStateWithLifecycle()
-
   val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
   val selectedEmail by viewModel.selectedEmail.collectAsStateWithLifecycle()
   val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
   val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
-  val latestSpamAlert by viewModel.latestSpamAlert.collectAsStateWithLifecycle()
   val isAutoSimulatorActive by viewModel.isAutoSimulatorActive.collectAsStateWithLifecycle()
 
   val inboxEmails by viewModel.inboxEmails.collectAsStateWithLifecycle()
@@ -167,6 +134,7 @@ fun MainApp(
   val totalCount by viewModel.totalCount.collectAsStateWithLifecycle()
   val spamCount by viewModel.spamCount.collectAsStateWithLifecycle()
   val hamCount by viewModel.hamCount.collectAsStateWithLifecycle()
+  val sentCount by viewModel.sentCount.collectAsStateWithLifecycle()
   val unreadInbox by viewModel.unreadInbox.collectAsStateWithLifecycle()
   val unreadSpam by viewModel.unreadSpam.collectAsStateWithLifecycle()
 
@@ -175,13 +143,12 @@ fun MainApp(
   val playgroundResult by viewModel.playgroundResult.collectAsStateWithLifecycle()
   val modelMetrics by viewModel.modelMetrics.collectAsStateWithLifecycle()
 
-  val isBiometricAvailable = remember { BiometricAuthHelper.isBiometricAvailable(context) }
-
   val snackbarHostState = remember { SnackbarHostState() }
   var showSimulateDialog by remember { mutableStateOf(false) }
   var showComposeDialog by remember { mutableStateOf(false) }
+  var showInfoDialog by remember { mutableStateOf(false) }
+  var showSecurityDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
-  var showPrivacyDialog by remember { mutableStateOf(false) }
 
   // Notification permission requester for Android 13+
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -196,16 +163,8 @@ fun MainApp(
           Manifest.permission.POST_NOTIFICATIONS
         ) != PackageManager.PERMISSION_GRANTED
       ) {
-        try {
-          notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } catch (e: Exception) {
-          android.util.Log.e("MainActivity", "Notification permission launch failed", e)
-        }
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
       }
-    }
-    // Launch BiometricPrompt on app start if biometrics are available and app is locked
-    if (isLoggedIn && isAppLocked && isBiometricAvailable) {
-      onTriggerBiometrics()
     }
   }
 
@@ -216,32 +175,7 @@ fun MainApp(
     }
   }
 
-  // 1. If not logged in, show Email Login screen
-  if (!isLoggedIn) {
-    EmailLoginScreen(
-      onLoginSuccess = { email, name ->
-        viewModel.login(email, name)
-      },
-      onBiometricUnlock = {
-        onTriggerBiometrics()
-      },
-      isBiometricAvailable = isBiometricAvailable
-    )
-    return
-  }
-
-  // 2. If app is locked, enforce BiometricPrompt / PIN authentication
-  if (isAppLocked) {
-    AppLockScreen(
-      onUnlockSuccess = { viewModel.unlockSuccess() },
-      verifyPin = { pin -> viewModel.verifyPin(pin) },
-      onBiometricClick = { onTriggerBiometrics() },
-      isBiometricAvailable = isBiometricAvailable
-    )
-    return
-  }
-
-  // 3. If email is selected, display detail reading screen
+  // If email is selected, display detail reading screen
   if (selectedEmail != null) {
     EmailDetailScreen(
       email = selectedEmail!!,
@@ -256,7 +190,6 @@ fun MainApp(
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
-    contentWindowInsets = WindowInsets.systemBars,
     snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     topBar = {
       TopAppBar(
@@ -265,7 +198,7 @@ fun MainApp(
             Surface(
               shape = RoundedCornerShape(10.dp),
               color = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(34.dp)
+              modifier = Modifier.size(36.dp)
             ) {
               Box(contentAlignment = Alignment.Center) {
                 Icon(
@@ -284,16 +217,15 @@ fun MainApp(
                 fontWeight = FontWeight.Bold
               )
               Text(
-                text = userEmail,
+                text = "pradeephongal17@gmail.com",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 11.sp
+                color = MaterialTheme.colorScheme.primary
               )
             }
           }
         },
         actions = {
-          // Stream Toggle Button
+          // Stream Toggle Button (Simulates real-time incoming messages)
           FilledTonalIconButton(
             onClick = { viewModel.toggleAutoSimulator() },
             colors = IconButtonDefaults.filledTonalIconButtonColors(
@@ -308,27 +240,15 @@ fun MainApp(
             )
           }
 
-          // Privacy Policy
-          IconButton(
-            onClick = { showPrivacyDialog = true },
-            modifier = Modifier.testTag("top_privacy_button")
-          ) {
-            Icon(Icons.Default.PrivacyTip, contentDescription = "Privacy Policy")
+          IconButton(onClick = { showInfoDialog = true }) {
+            Icon(Icons.Default.Info, contentDescription = "App Information")
           }
 
-          // Lock Now
-          IconButton(
-            onClick = { viewModel.lockApp() },
-            modifier = Modifier.testTag("top_lock_button")
-          ) {
-            Icon(Icons.Default.Lock, contentDescription = "Lock App")
+          IconButton(onClick = { showSecurityDialog = true }) {
+            Icon(Icons.Default.Lock, contentDescription = "Security Status")
           }
 
-          // Settings
-          IconButton(
-            onClick = { showSettingsDialog = true },
-            modifier = Modifier.testTag("top_settings_button")
-          ) {
+          IconButton(onClick = { showSettingsDialog = true }) {
             Icon(Icons.Default.Settings, contentDescription = "Settings")
           }
         },
@@ -368,7 +288,7 @@ fun MainApp(
             onClick = { viewModel.setTab(AppTab.SENT) },
             icon = {
               Icon(
-                imageVector = if (currentTab == AppTab.SENT) Icons.Filled.Send else Icons.Outlined.Send,
+                imageVector = if (currentTab == AppTab.SENT) Icons.AutoMirrored.Filled.Send else Icons.AutoMirrored.Outlined.Send,
                 contentDescription = "Sent"
               )
             },
@@ -424,8 +344,47 @@ fun MainApp(
           )
         }
 
-        // Creator name permanently below the app
-        AppFooter()
+        // Bottom Brand strip
+        Surface(
+          color = MaterialTheme.colorScheme.surface,
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                imageVector = Icons.Default.Security,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                text = "Smail • On-Device Naïve Bayes",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+              )
+            }
+            Surface(
+              shape = RoundedCornerShape(12.dp),
+              color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+            ) {
+              Text(
+                text = "Created by @PRADEEP",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+              )
+            }
+          }
+        }
       }
     },
     floatingActionButton = {
@@ -435,111 +394,162 @@ fun MainApp(
       ) {
         FloatingActionButton(
           onClick = { showComposeDialog = true },
-          containerColor = MaterialTheme.colorScheme.secondaryContainer,
-          contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+          containerColor = MaterialTheme.colorScheme.primary,
+          contentColor = MaterialTheme.colorScheme.onPrimary,
+          shape = RoundedCornerShape(16.dp),
           modifier = Modifier.testTag("compose_fab")
         ) {
-          Icon(Icons.Default.Edit, contentDescription = "Compose Real-Time Email")
+          Icon(Icons.Default.Edit, contentDescription = "Compose Email")
         }
 
         ExtendedFloatingActionButton(
           onClick = { showSimulateDialog = true },
           icon = { Icon(Icons.Default.Add, contentDescription = null) },
           text = { Text("Simulate Incoming") },
-          containerColor = MaterialTheme.colorScheme.primary,
-          contentColor = MaterialTheme.colorScheme.onPrimary,
+          containerColor = MaterialTheme.colorScheme.primaryContainer,
+          contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
           modifier = Modifier.testTag("simulate_email_fab")
         )
       }
     }
   ) { innerPadding ->
-    Column(
+    Box(
       modifier = Modifier
         .fillMaxSize()
         .padding(innerPadding)
     ) {
-      // Prominent In-App Red Warning Banner (shown when spam is intercepted)
-      SpamWarningBanner(
-        alertInfo = latestSpamAlert,
-        onDismiss = { viewModel.dismissSpamAlert() },
-        onOpenSpamFolder = {
-          viewModel.dismissSpamAlert()
-          viewModel.setTab(AppTab.SPAM)
-        }
-      )
+      AnimatedContent(
+        targetState = currentTab,
+        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        label = "tab_transition"
+      ) { tab ->
+        when (tab) {
+          AppTab.INBOX -> {
+            EmailListScreen(
+              title = "Inbox",
+              isSpamFolder = false,
+              emails = inboxEmails,
+              searchQuery = searchQuery,
+              onSearchQueryChange = { viewModel.setSearchQuery(it) },
+              onSelectEmail = { viewModel.selectEmail(it) },
+              onToggleStar = { viewModel.toggleStar(it) }
+            )
+          }
 
-      Box(modifier = Modifier.weight(1f)) {
-        AnimatedContent(
-          targetState = currentTab,
-          transitionSpec = { fadeIn() togetherWith fadeOut() },
-          label = "tab_transition"
-        ) { tab ->
-          when (tab) {
-            AppTab.INBOX -> {
-              EmailListScreen(
-                title = "Inbox",
-                isSpamFolder = false,
-                emails = inboxEmails,
-                searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.setSearchQuery(it) },
-                onSelectEmail = { viewModel.selectEmail(it) },
-                onToggleStar = { viewModel.toggleStar(it) }
-              )
-            }
+          AppTab.SENT -> {
+            EmailListScreen(
+              title = "Sent",
+              isSentFolder = true,
+              emails = sentEmails,
+              searchQuery = searchQuery,
+              onSearchQueryChange = { viewModel.setSearchQuery(it) },
+              onSelectEmail = { viewModel.selectEmail(it) },
+              onToggleStar = { viewModel.toggleStar(it) }
+            )
+          }
 
-            AppTab.SENT -> {
-              EmailListScreen(
-                title = "Sent Mail",
-                isSpamFolder = false,
-                emails = sentEmails,
-                searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.setSearchQuery(it) },
-                onSelectEmail = { viewModel.selectEmail(it) },
-                onToggleStar = { viewModel.toggleStar(it) }
-              )
-            }
+          AppTab.SPAM -> {
+            EmailListScreen(
+              title = "Spam Quarantine",
+              isSpamFolder = true,
+              emails = spamEmails,
+              searchQuery = searchQuery,
+              onSearchQueryChange = { viewModel.setSearchQuery(it) },
+              onSelectEmail = { viewModel.selectEmail(it) },
+              onToggleStar = { viewModel.toggleStar(it) }
+            )
+          }
 
-            AppTab.SPAM -> {
-              EmailListScreen(
-                title = "Spam Quarantine",
-                isSpamFolder = true,
-                emails = spamEmails,
-                searchQuery = searchQuery,
-                onSearchQueryChange = { viewModel.setSearchQuery(it) },
-                onSelectEmail = { viewModel.selectEmail(it) },
-                onToggleStar = { viewModel.toggleStar(it) }
-              )
-            }
+          AppTab.DASHBOARD -> {
+            DashboardScreen(
+              totalCount = totalCount,
+              spamCount = spamCount,
+              hamCount = hamCount,
+              modelMetrics = modelMetrics,
+              onResetModel = { viewModel.resetModel() }
+            )
+          }
 
-            AppTab.DASHBOARD -> {
-              DashboardScreen(
-                totalCount = totalCount,
-                spamCount = spamCount,
-                hamCount = hamCount,
-                modelMetrics = modelMetrics,
-                onResetModel = { viewModel.resetModel() }
-              )
-            }
-
-            AppTab.INSPECTOR -> {
-              ClassifierPlaygroundScreen(
-                subject = playgroundSubject,
-                body = playgroundBody,
-                result = playgroundResult,
-                onSubjectChange = { viewModel.setPlaygroundSubject(it) },
-                onBodyChange = { viewModel.setPlaygroundBody(it) },
-                onTestAsIncoming = { subj, bdy ->
-                  viewModel.simulateCustomEmail("Playground Tester", "tester@ai-sandbox.org", subj, bdy)
-                }
-              )
-            }
+          AppTab.INSPECTOR -> {
+            ClassifierPlaygroundScreen(
+              subject = playgroundSubject,
+              body = playgroundBody,
+              result = playgroundResult,
+              onSubjectChange = { viewModel.setPlaygroundSubject(it) },
+              onBodyChange = { viewModel.setPlaygroundBody(it) },
+              onTestAsIncoming = { subj, bdy ->
+                viewModel.simulateCustomEmail("Playground Tester", "tester@ai-sandbox.org", subj, bdy)
+              }
+            )
           }
         }
       }
     }
   }
 
-  // Dialogs
+  if (showComposeDialog) {
+    ComposeEmailDialog(
+      onDismiss = { showComposeDialog = false },
+      onSend = { recipient, subject, body ->
+        viewModel.sendEmail(recipient, subject, body)
+      }
+    )
+  }
+
+  if (showInfoDialog) {
+    AlertDialog(
+      onDismissRequest = { showInfoDialog = false },
+      title = { Text("About Smail") },
+      text = {
+        Text("Smail is an on-device private email application featuring a real-time Naïve Bayes spam classifier. All classification occurs locally on your device with zero data shared externally.")
+      },
+      confirmButton = {
+        TextButton(onClick = { showInfoDialog = false }) { Text("OK") }
+      }
+    )
+  }
+
+  if (showSecurityDialog) {
+    AlertDialog(
+      onDismissRequest = { showSecurityDialog = false },
+      title = { Text("Security & Privacy Shield") },
+      text = {
+        Text("100% On-Device AI: Naïve Bayes model runs strictly on device using local SQLite database. Incoming emails are scanned in real-time without cloud inference.")
+      },
+      confirmButton = {
+        TextButton(onClick = { showSecurityDialog = false }) { Text("Got It") }
+      }
+    )
+  }
+
+  if (showSettingsDialog) {
+    AlertDialog(
+      onDismissRequest = { showSettingsDialog = false },
+      title = { Text("Settings & Model Management") },
+      text = {
+        Column {
+          Text("Model: Naïve Bayes (Laplace smoothed)")
+          Spacer(modifier = Modifier.height(8.dp))
+          Text("Total processed: $totalCount")
+          Text("Spam caught: $spamCount")
+          Text("Ham verified: $hamCount")
+          Text("Sent emails: $sentCount")
+        }
+      },
+      confirmButton = {
+        TextButton(onClick = {
+          viewModel.resetModel()
+          showSettingsDialog = false
+        }) {
+          Text("Reset Model")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showSettingsDialog = false }) { Text("Close") }
+      }
+    )
+  }
+
   if (showSimulateDialog) {
     SimulateIncomingEmailDialog(
       onDismiss = { showSimulateDialog = false },
@@ -549,46 +559,6 @@ fun MainApp(
       onSendCustom = { sender, email, subj, body ->
         viewModel.simulateCustomEmail(sender, email, subj, body)
       }
-    )
-  }
-
-  if (showComposeDialog) {
-    ComposeEmailDialog(
-      senderEmail = userEmail,
-      onDismiss = { showComposeDialog = false },
-      onSend = { to, subj, body ->
-        viewModel.sendEmail(to, subj, body)
-      },
-      classifyDraft = { subj, body ->
-        viewModel.classifyDraft(subj, body)
-      }
-    )
-  }
-
-  if (showSettingsDialog) {
-    SettingsDialog(
-      userEmail = userEmail,
-      userName = userName,
-      isAppLockEnabled = isAppLockEnabled,
-      currentPin = currentPin,
-      onToggleAppLock = { viewModel.toggleAppLock(it) },
-      onChangePin = { viewModel.changePin(it) },
-      onTestWarningSound = { viewModel.playWarningAlertSound() },
-      onOpenPrivacyPolicy = {
-        showSettingsDialog = false
-        showPrivacyDialog = true
-      },
-      onLogout = {
-        showSettingsDialog = false
-        viewModel.logout()
-      },
-      onDismiss = { showSettingsDialog = false }
-    )
-  }
-
-  if (showPrivacyDialog) {
-    PrivacyPolicyDialog(
-      onDismiss = { showPrivacyDialog = false }
     )
   }
 }
